@@ -6,6 +6,7 @@ package gc
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -50,6 +51,16 @@ func ispkgin(pkgs []string) bool {
 }
 
 func instrument(fn *Node) {
+	if os.Getenv("DEBUG_HAHA") == "TRUE" {
+		Dump("*************** DEBUG_HAHA BEFORE *****************************\n", fn)
+	}
+	instrumentImpl(fn)
+	if os.Getenv("DEBUG_HAHA") == "TRUE" {
+		Dump("*************** DEBUG_HAHA AFTER *****************************\n", fn)
+	}
+}
+
+func instrumentImpl(fn *Node) {
 	if ispkgin(omit_pkgs) || fn.Func.Pragma&Norace != 0 {
 		return
 	}
