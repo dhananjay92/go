@@ -414,7 +414,9 @@ func semasleep1(ns int64) int32 {
 		if r == 0 {
 			break
 		}
-		if r == _KERN_ABORTED { // interrupted
+		// Syscall semaphore_wait_trap shouldn't return _KERN_OPERATION_TIMED_OUT,
+		// but it does for some reason.
+		if r == _KERN_ABORTED || r == _KERN_OPERATION_TIMED_OUT {
 			continue
 		}
 		macherror(r, "semaphore_wait")
