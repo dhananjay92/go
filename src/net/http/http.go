@@ -22,6 +22,9 @@ const maxInt64 = 1<<63 - 1
 // immediate cancelation of network operations.
 var aLongTimeAgo = time.Unix(233431200, 0)
 
+// Default timeout for operations like conn.Read and conn.Write.
+var defaultTimeouts = time.Second
+
 // TODO(bradfitz): move common stuff here. The other files have accumulated
 // generic http stuff in random places.
 

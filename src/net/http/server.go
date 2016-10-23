@@ -269,7 +269,7 @@ func (c *conn) hijackLocked() (rwc net.Conn, buf *bufio.ReadWriter, err error) {
 	if c.hijackedv {
 		return nil, nil, ErrHijacked
 	}
-	c.r.abortPendingRead()
+	c.r.finishPendingRead(true)
 
 	c.hijackedv = true
 	rwc = c.rwc
@@ -604,7 +604,7 @@ func (cr *connReader) backgroundRead() {
 	}
 	if ne, ok := err.(net.Error); ok && cr.aborted && ne.Timeout() {
 		// Ignore this error. It's the expected error from
-		// another goroutine calling abortPendingRead.
+		// another goroutine calling finishPendingRead.
 	} else if err != nil {
 		cr.handleReadError(err)
 	}
@@ -614,18 +614,20 @@ func (cr *connReader) backgroundRead() {
 	cr.cond.Broadcast()
 }
 
-func (cr *connReader) abortPendingRead() {
+func (cr *connReader) finishPendingRead(abort bool) {
 	cr.lock()
 	defer cr.unlock()
 	if !cr.inRead {
 		return
 	}
-	cr.aborted = true
-	cr.conn.rwc.SetReadDeadline(aLongTimeAgo)
+	if abort {
+		cr.aborted = true
+		cr.conn.rwc.SetReadDeadline(aLongTimeAgo)
+		defer cr.conn.rwc.SetReadDeadline(time.Time{})
+	}
 	for cr.inRead {
 		cr.cond.Wait()
 	}
-	cr.conn.rwc.SetReadDeadline(time.Time{})
 }
 
 func (cr *connReader) setReadLimit(remain int64) { cr.remain = remain }
@@ -1446,7 +1448,7 @@ func (w *response) write(lenData int, dataB []byte, dataS string) (n int, err er
 	}
 }
 
-func (w *response) finishRequest() {
+func (w *response) finishRequest(abort bool) {
 	w.handlerDone.setTrue()
 
 	if !w.wroteHeader {
@@ -1458,7 +1460,7 @@ func (w *response) finishRequest() {
 	w.cw.close()
 	w.conn.bufw.Flush()
 
-	w.conn.r.abortPendingRead()
+	w.conn.r.finishPendingRead(abort)
 
 	// Close the body (regardless of w.closeAfterReply) so we can
 	// re-use its bufio.Reader later safely.
@@ -1603,13 +1605,14 @@ func (c *conn) serve(ctx context.Context) {
 		}
 	}()
 
+	if d := c.server.ReadTimeout; d != 0 {
+		c.rwc.SetReadDeadline(time.Now().Add(d))
+	}
+	if d := c.server.WriteTimeout; d != 0 {
+		c.rwc.SetWriteDeadline(time.Now().Add(d))
+	}
+
 	if tlsConn, ok := c.rwc.(*tls.Conn); ok {
-		if d := c.server.ReadTimeout; d != 0 {
-			c.rwc.SetReadDeadline(time.Now().Add(d))
-		}
-		if d := c.server.WriteTimeout; d != 0 {
-			c.rwc.SetWriteDeadline(time.Now().Add(d))
-		}
 		if err := tlsConn.Handshake(); err != nil {
 			c.server.logf("http: TLS handshake error from %s: %v", c.rwc.RemoteAddr(), err)
 			return
@@ -1701,7 +1704,7 @@ func (c *conn) serve(ctx context.Context) {
 		if c.hijacked() {
 			return
 		}
-		w.finishRequest()
+		w.finishRequest(false)
 		if !w.shouldReuseConnection() {
 			if w.requestBodyLimitHit || w.closedRequestBodyEarly() {
 				c.closeWriteAndWait()
@@ -1728,7 +1731,7 @@ func (w *response) sendExpectationFailed() {
 	// respond with a 417 (Expectation Failed) status."
 	w.Header().Set("Connection", "close")
 	w.WriteHeader(StatusExpectationFailed)
-	w.finishRequest()
+	w.finishRequest(true)
 }
 
 // Hijack implements the Hijacker.Hijack method. Our response is both a ResponseWriter
@@ -2336,6 +2339,14 @@ func (srv *Server) Serve(l net.Listener) error {
 
 	if err := srv.setupHTTP2_Serve(); err != nil {
 		return err
+	}
+
+	// Ensure sensible defaults. Without this, it can deadlock.
+	if srv.ReadTimeout == 0 {
+		srv.ReadTimeout = defaultTimeouts
+	}
+	if srv.WriteTimeout == 0 {
+		srv.ReadTimeout = defaultTimeouts
 	}
 
 	baseCtx := context.Background() // base is always background, per Issue 16220
