@@ -593,6 +593,10 @@ func (cr *connReader) startBackgroundRead() {
 }
 
 func (cr *connReader) backgroundRead() {
+	fmt.Println("backgroundRead() : started...")
+	// Sleep to simulate delay in cr.conn.rwc.Read()
+	// This should cause abortPendingRead() to be called before backgroundRead() finishes.
+	time.Sleep(time.Second * 5)
 	n, err := cr.conn.rwc.Read(cr.byteBuf[:])
 	cr.lock()
 	if n == 1 {
@@ -612,20 +616,26 @@ func (cr *connReader) backgroundRead() {
 	cr.inRead = false
 	cr.unlock()
 	cr.cond.Broadcast()
+	fmt.Println("backgroundRead() : done...")
 }
 
 func (cr *connReader) abortPendingRead() {
+	fmt.Println("abortPendingRead() : started")
 	cr.lock()
 	defer cr.unlock()
 	if !cr.inRead {
+		fmt.Println("abortPendingRead() : !cr.inRead")
 		return
 	}
 	cr.aborted = true
+	fmt.Println("abortPendingRead() : SetReadDeadline(aLongTimeAgo)")
 	cr.conn.rwc.SetReadDeadline(aLongTimeAgo)
 	for cr.inRead {
 		cr.cond.Wait()
 	}
+	fmt.Println("abortPendingRead() : time.Time{}")
 	cr.conn.rwc.SetReadDeadline(time.Time{})
+	fmt.Println("abortPendingRead() : done...")
 }
 
 func (cr *connReader) setReadLimit(remain int64) { cr.remain = remain }
