@@ -22,13 +22,13 @@ import (
 // file to write ("" means to write to standard output). The function reads the profile and produces
 // as output the coverage data broken down by function, like this:
 //
-//	fmt/format.go:30:	init			100.0%
-//	fmt/format.go:57:	clearflags		100.0%
+//	fmt/format.go:30:	init		1000/1000	100.0%
+//	fmt/format.go:57:	clearflags	1000/100	100.0%
 //	...
-//	fmt/scan.go:1046:	doScan			100.0%
-//	fmt/scan.go:1075:	advance			96.2%
-//	fmt/scan.go:1119:	doScanf			96.8%
-//	total:		(statements)			91.9%
+//	fmt/scan.go:1046:	doScan		1000/1000	100.0%
+//	fmt/scan.go:1075:	advance		962/1000	96.2%
+//	fmt/scan.go:1119:	doScanf		968/1000	96.8%
+//	total:		(statements)		919/1000	91.9%
 
 func funcOutput(profile, outputFile string) error {
 	profiles, err := ParseProfiles(profile)
@@ -66,12 +66,12 @@ func funcOutput(profile, outputFile string) error {
 		// Now match up functions and profile blocks.
 		for _, f := range funcs {
 			c, t := f.coverage(profile)
-			fmt.Fprintf(tabber, "%s:%d:\t%s\t%.1f%%\n", fn, f.startLine, f.name, 100.0*float64(c)/float64(t))
+			fmt.Fprintf(tabber, "%s:%d:\t%s\t%d/%d\t%.1f%%\n", fn, f.startLine, f.name, c, t, 100.0*float64(c)/float64(t))
 			total += t
 			covered += c
 		}
 	}
-	fmt.Fprintf(tabber, "total:\t(statements)\t%.1f%%\n", 100.0*float64(covered)/float64(total))
+	fmt.Fprintf(tabber, "total:\t(statements)\t%d/%d\t%.1f%%\n", covered, total, 100.0*float64(covered)/float64(total))
 
 	return nil
 }

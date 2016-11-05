@@ -46,10 +46,13 @@ func htmlOutput(profile, outfile string) error {
 		if err != nil {
 			return err
 		}
+		c, t, cp := coverageSummary(profile)
 		d.Files = append(d.Files, &templateFile{
 			Name:     fn,
 			Body:     template.HTML(buf.String()),
-			Coverage: percentCovered(profile),
+			Covered:  c,
+			Total:    t,
+			Coverage: cp,
 		})
 	}
 
@@ -81,10 +84,12 @@ func htmlOutput(profile, outfile string) error {
 	return nil
 }
 
-// percentCovered returns, as a percentage, the fraction of the statements in
-// the profile covered by the test run.
-// In effect, it reports the coverage of a given source file.
-func percentCovered(p *Profile) float64 {
+// coverageSummary returns summary of coverage for a given source profile.
+// Summary includes, in that order:
+//   Lines covered: Number of lines covered by test.
+//   Total Lines: Total number of lines in file.
+// 	 Coverage Percentage: the fraction of the statements in the profile covered by the test run.
+func coverageSummary(p *Profile) (int64, int64, float64) {
 	var total, covered int64
 	for _, b := range p.Blocks {
 		total += int64(b.NumStmt)
@@ -93,9 +98,9 @@ func percentCovered(p *Profile) float64 {
 		}
 	}
 	if total == 0 {
-		return 0
+		return 0, 0, 0
 	}
-	return float64(covered) / float64(total) * 100
+	return covered, total, float64(covered) / float64(total) * 100
 }
 
 // htmlGen generates an HTML coverage report with the provided filename,
@@ -166,6 +171,8 @@ type templateData struct {
 type templateFile struct {
 	Name     string
 	Body     template.HTML
+	Covered  int64
+	Total    int64
 	Coverage float64
 }
 
@@ -206,6 +213,11 @@ const tmplHTML = `
 			#legend span {
 				margin: 0 5px;
 			}
+			.profile-summary {
+			    border-style: solid;
+			    padding: 4px;
+			    color: #5bc0de;
+			}
 			{{colors}}
 		</style>
 	</head>
@@ -240,7 +252,15 @@ const tmplHTML = `
 		</div>
 		<div id="content">
 		{{range $i, $f := .Files}}
-		<pre class="file" id="file{{$i}}" style="display: none">{{$f.Body}}</pre>
+		<div id="file{{$i}}" style="display: none">
+			<p class="profile-summary">
+				<strong>Summary:</strong><br/>
+				# of covered lines = {{$f.Covered}}<br/>
+				# of total lines = {{$f.Total}}<br/>
+				% coverage = {{printf "%.1f" $f.Coverage}}<br/>
+			</p>
+			<pre class="file">{{$f.Body}}</pre>
+		</div>
 		{{end}}
 		</div>
 	</body>
