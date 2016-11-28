@@ -479,6 +479,13 @@ func Main() {
 		}
 	}
 
+	for i := 0; i < len(xtop); i++ {
+		haha := os.Getenv("HAHA")
+		if xtop[i].Op == ODCLFUNC && haha != "" {
+			Dump("HAHA", xtop[i])
+		}
+	}
+
 	if nerrors+nsavederrors != 0 {
 		errorexit()
 	}
