@@ -9,7 +9,6 @@ import "unsafe"
 //go:cgo_export_dynamic runtime.end _end
 //go:cgo_export_dynamic runtime.etext _etext
 //go:cgo_export_dynamic runtime.edata _edata
-
 //go:cgo_import_dynamic libc____errno ___errno "libc.so"
 //go:cgo_import_dynamic libc_clock_gettime clock_gettime "libc.so"
 //go:cgo_import_dynamic libc_close close "libc.so"
@@ -44,7 +43,6 @@ import "unsafe"
 //go:cgo_import_dynamic libc_sysconf sysconf "libc.so"
 //go:cgo_import_dynamic libc_usleep usleep "libc.so"
 //go:cgo_import_dynamic libc_write write "libc.so"
-
 //go:linkname libc____errno libc____errno
 //go:linkname libc_clock_gettime libc_clock_gettime
 //go:linkname libc_close libc_close
@@ -79,7 +77,6 @@ import "unsafe"
 //go:linkname libc_sysconf libc_sysconf
 //go:linkname libc_usleep libc_usleep
 //go:linkname libc_write libc_write
-
 var (
 	libc____errno,
 	libc_clock_gettime,
