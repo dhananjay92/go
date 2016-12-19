@@ -360,8 +360,11 @@ func annotate(name string) {
 	if err != nil {
 		log.Fatalf("cover: %s: %s", name, err)
 	}
-	// Remove comments. Or else they interfere with new AST.
-	parsedFile.Comments = nil
+
+	// Remove all comments but the position insensitive compiler directives.
+	// Or else the position sensitive compiler directives could be misplaced while priting the new AST.
+	// We keep position insensitive compiler directives, because they're only present in ast.File.Comments; They don't get attached to any node in AST.
+	// parsedFile.Comments = trimComments(parsedFile, fset)
 
 	file := &File{
 		fset:    fset,
@@ -372,6 +375,7 @@ func annotate(name string) {
 		file.atomicPkg = file.addImport(atomicPackagePath)
 	}
 	ast.Walk(file, file.astFile)
+	parsedFile.Comments = trimComments(parsedFile, fset)
 	fd := os.Stdout
 	if *output != "" {
 		var err error
@@ -385,6 +389,24 @@ func annotate(name string) {
 	// After printing the source tree, add some declarations for the counters etc.
 	// We could do this by adding to the tree, but it's easier just to print the text.
 	file.addVariables(fd)
+}
+
+// trimComments drops all except for the positive insensitive compiler directives. Position sensitive compiler directives are handeled in ast.Visitor.
+func trimComments(file *ast.File, fset *token.FileSet) []*ast.CommentGroup {
+	var comments []*ast.CommentGroup
+	for _, group := range file.Comments {
+		var list []*ast.Comment
+		for _, comment := range group.List {
+			if fset.Position(comment.Slash).Column == 1 && (strings.HasPrefix(comment.Text, "//go:linkname ") || strings.HasPrefix(comment.Text, "//go:cgo_")) {
+				list = append(list, comment)
+				fmt.Printf("keeping %q\n", comment.Text)
+			}
+		}
+		if list != nil {
+			comments = append(comments, &ast.CommentGroup{List: list})
+		}
+	}
+	return comments
 }
 
 func (f *File) print(w io.Writer) {

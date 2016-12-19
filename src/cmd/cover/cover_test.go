@@ -86,6 +86,7 @@ func TestCover(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	fmt.Println(string(file))
 	// compiler directive must appear right next to function declaration.
 	if got, err := regexp.MatchString(".*\n//go:nosplit\nfunc someFunction().*", string(file)); err != nil || !got {
 		t.Errorf("misplaced compiler directive: got=(%v, %v); want=(true; nil)", got, err)

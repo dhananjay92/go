@@ -8,7 +8,11 @@
 // The word LINE is replaced by the line number in this file. When the file is executed,
 // the coverage processing has changed the line numbers, so we can't use runtime.Caller.
 
+//go:linkname some_link_name some_link_name
+
 package main
+
+import _ "unsafe"
 
 const anything = 1e9 // Just some unlikely value that means "we got here, don't care how often"
 
