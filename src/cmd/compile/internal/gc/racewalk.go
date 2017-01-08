@@ -6,6 +6,7 @@ package gc
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -154,6 +155,10 @@ func instrumentnode(np **Node, init *Nodes, wr int, skip int) {
 			// instrumentation calls will smash the results.
 			// The assignments are to temporaries, so they cannot
 			// be involved in races and need not be instrumented.
+			if ls[i].Right == nil && os.Getenv("HAHA") != "" && afterCall && op == OAS {
+				Dump("ls[i]:", ls[i])
+				Dump("n:", n)
+			}
 			if afterCall && op == OAS && iscallret(ls[i].Right) {
 				continue
 			}
