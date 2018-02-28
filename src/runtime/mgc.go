@@ -1658,14 +1658,18 @@ func gcMarkTermination(nextTriggerRatio float64) {
 	// Free stack spans. This must be done between GC cycles.
 	systemstack(freeStackSpans)
 
-	// Print gctrace before dropping worldsema. As soon as we drop
+	// Remember and print gctrace before dropping worldsema. As soon as we drop
 	// worldsema another cycle could start and smash the stats
 	// we're trying to print.
+	var stats MemStats
+	getmemstats(&stats)
+	gcstats[memstats.numgc%uint32(len(gcstats))] = stats
 	if debug.gctrace > 0 {
 		util := int(memstats.gc_cpu_fraction * 100)
 
 		var sbuf [24]byte
 		printlock()
+
 		print("gc ", memstats.numgc,
 			" @", string(itoaDiv(sbuf[:], uint64(work.tSweepTerm-runtimeInitTime)/1e6, 3)), "s ",
 			util, "%: ")

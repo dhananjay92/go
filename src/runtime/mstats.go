@@ -428,6 +428,11 @@ type MemStats struct {
 	}
 }
 
+// Circular buffer of stats from past GC.
+//
+// TODO(dhananjayn): Take buffer size as input from GODEBUG?
+var gcstats [256]MemStats
+
 // Size of the trailing by_size array differs between mstats and MemStats,
 // and all data after by_size is local to runtime, not exported.
 // NumSizeClasses was changed, but we cannot change MemStats because of backward compatibility.
@@ -464,9 +469,24 @@ func ReadMemStats(m *MemStats) {
 	startTheWorld()
 }
 
+// ReadAllMemStats returns memstats for past GCs.
+func ReadAllMemStats(stats *[]MemStats) {
+	stopTheWorld("read all mem stats")
+
+	systemstack(func() {
+		copy(*stats, gcstats[:])
+	})
+
+	startTheWorld()
+}
+
 func readmemstats_m(stats *MemStats) {
 	updatememstats()
+	getmemstats(stats)
+}
 
+// converts memstats to MemStats
+func getmemstats(stats *MemStats) {
 	// The size of the trailing by_size array differs between
 	// mstats and MemStats. NumSizeClasses was changed, but we
 	// cannot change MemStats because of backward compatibility.
